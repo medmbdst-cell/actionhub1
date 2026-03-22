@@ -4,13 +4,13 @@ import Link from 'next/link';
 import TenantDetailsHeader from '@/components/super-admin/TenantDetailsHeader';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function TenantDetailPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = await params;
 
   const [tenant, stats, users] = await Promise.all([
     getTenantById(id),

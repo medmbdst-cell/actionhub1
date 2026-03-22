@@ -5,7 +5,7 @@
  * Permet de modifier le statut et le commentaire (champs local_wins)
  */
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateAction } from '@/app/actions/update-action';
 import { ArrowLeft, Save, Loader2, AlertCircle, Check } from 'lucide-react';
@@ -27,7 +27,8 @@ interface Action {
   };
 }
 
-export default function ActionDetailPage({ params }: { params: { id: string } }) {
+export default function ActionDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [action, setAction] = useState<Action | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,14 +44,14 @@ export default function ActionDetailPage({ params }: { params: { id: string } })
 
   useEffect(() => {
     loadAction();
-  }, [params.id]);
+  }, [id]);
 
   async function loadAction() {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/actions/${params.id}`);
+      const response = await fetch(`/api/actions/${id}`);
       const data = await response.json();
 
       if (data.success) {
@@ -77,7 +78,7 @@ export default function ActionDetailPage({ params }: { params: { id: string } })
 
     try {
       const result = await updateAction({
-        id: params.id,
+        id: id,
         statut: formData.statut,
         commentaire: formData.commentaire,
       });
