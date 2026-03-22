@@ -1,0 +1,9 @@
+Plan d'action,Description,Responsable,Statut,Echeance
+Plan Test Matching,Action 1 - Match exact,DUPONT,En cours,2024-12-31
+Plan Test Matching,Action 2 - Match exact,LEFEBVRE,En cours,2024-12-31
+Plan Test Matching,Action 3 - Homonyme sans initiale (ambigu),MARTIN,En cours,2024-12-31
+Plan Test Matching,Action 4 - Homonyme avec initiale P,P MARTIN,En cours,2024-12-31
+Plan Test Matching,Action 5 - Homonyme avec initiale S,S MARTIN,En cours,2024-12-31
+Plan Test Matching,Action 6 - Match exact,PETIT,En cours,2024-12-31
+Plan Test Matching,Action 7 - Inexistant,BERNARD,En cours,2024-12-31
+Plan Test Matching,Action 8 - Match exact,DUPONNE,En cours,2024-12-31

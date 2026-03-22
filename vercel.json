@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-drive",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/notify-echeances",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

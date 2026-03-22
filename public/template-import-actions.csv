@@ -1,0 +1,11 @@
+Description,Responsable,Échéance,Statut,Priorité,Commentaire
+Mettre à jour la documentation technique,Jean Dupont,2026-04-15,todo,haute,Urgence client pour la release
+Corriger le bug d'authentification,Marie Martin,2026-03-20,wip,haute,En cours de test
+Optimiser les performances de la base de données,Pierre Bernard,2026-05-01,todo,moyen,Prévoir une réunion technique
+Former les nouveaux collaborateurs,Sophie Dubois,2026-03-25,done,faible,Formation terminée avec succès
+Réviser le processus de déploiement,Luc Moreau,2026-04-10,blocked,haute,En attente de validation sécurité
+Créer les tests unitaires pour le module API,Alice Petit,2026-04-05,todo,moyen,
+Migrer vers la nouvelle infrastructure cloud,Thomas Roux,2026-05-15,todo,haute,Budget approuvé
+Audit de sécurité annuel,Emma Laurent,2026-06-01,todo,haute,Prévoir 2 semaines
+Refactoring du code legacy,Lucas Simon,2026-04-20,wip,moyen,50% complété
+Mise en place du monitoring,Chloé Michel,2026-03-30,todo,haute,Urgent pour la production

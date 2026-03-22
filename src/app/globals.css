@@ -1,0 +1,180 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables CSS pour le mode sombre */
+:root {
+  /* Mode clair (par défaut) */
+  --bg: 255 255 255; /* white */
+  --bg2: 249 250 251; /* gray-50 */
+  --bg3: 243 244 246; /* gray-100 */
+  --border: 229 231 235; /* gray-200 */
+  --accent: 59 130 246; /* blue-500 */
+  --accent2: 96 165 250; /* blue-400 */
+  --text: 17 24 39; /* gray-900 */
+  --text2: 107 114 128; /* gray-500 */
+  --text3: 156 163 175; /* gray-400 */
+}
+
+.dark {
+  /* Mode sombre */
+  --bg: 15 17 23; /* #0f1117 */
+  --bg2: 22 27 37; /* #161b25 */
+  --bg3: 30 37 53; /* #1e2535 */
+  --border: 42 51 71; /* #2a3347 */
+  --accent: 59 130 246; /* #3b82f6 */
+  --accent2: 96 165 250; /* #60a5fa */
+  --text: 226 232 240; /* #e2e8f0 */
+  --text2: 148 163 184; /* #94a3b8 */
+  --text3: 100 116 139; /* #64748b */
+}
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  body {
+    @apply bg-bg text-text font-sans min-h-screen text-[14px] antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-[6px] h-[6px];
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bg2;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-[3px];
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text3;
+  }
+}
+
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply bg-accent text-white border-none rounded-md px-[18px] py-[10px] font-sans font-medium text-[13px] cursor-pointer transition-all duration-200 whitespace-nowrap;
+  }
+
+  .btn:hover {
+    @apply bg-accent2 -translate-y-px;
+  }
+
+  .btn:active {
+    @apply translate-y-0;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent border border-border text-text2;
+  }
+
+  .btn-ghost:hover {
+    @apply bg-bg3 border-accent text-accent2;
+  }
+
+  .btn-danger {
+    @apply bg-red-500;
+  }
+
+  .btn-danger:hover {
+    @apply bg-red-600;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-bg2 border border-border rounded-lg p-6;
+  }
+
+  /* Inputs */
+  .input {
+    @apply bg-bg3 border border-border rounded-md px-3.5 py-2.5 text-text font-mono text-xs outline-none transition-colors duration-200 w-full;
+  }
+
+  .input:focus {
+    @apply border-accent;
+  }
+
+  .input::placeholder {
+    @apply text-text3;
+  }
+
+  /* Labels */
+  .label {
+    @apply font-mono text-[10px] uppercase tracking-[1.5px] text-text3 mb-1.5 block;
+  }
+
+  /* Status badges */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono whitespace-nowrap;
+  }
+
+  .status-badge::before {
+    content: '●';
+    @apply text-[8px];
+  }
+
+  .sb-done {
+    @apply bg-green-500/10 text-green-500 border border-green-500/20;
+  }
+
+  .sb-wip {
+    @apply bg-yellow-500/10 text-yellow-500 border border-yellow-500/20;
+  }
+
+  .sb-todo {
+    @apply bg-text2/5 text-text3 border border-text2/10;
+  }
+
+  .sb-blocked {
+    @apply bg-red-500/10 text-red-500 border border-red-500/20;
+  }
+
+  /* Priority badges */
+  .prio-badge {
+    @apply font-mono text-[11px] px-2 py-0.5 rounded;
+  }
+
+  .prio-haute {
+    @apply bg-red-500/10 text-red-500;
+  }
+
+  .prio-moyen {
+    @apply bg-yellow-500/10 text-yellow-500;
+  }
+
+  .prio-faible {
+    @apply bg-text2/5 text-text3;
+  }
+
+  /* Date badges */
+  .date-badge {
+    @apply inline-flex items-center gap-1.5 font-mono text-xs px-2 py-1 rounded whitespace-nowrap;
+  }
+
+  .date-retard {
+    @apply text-red-500 bg-red-500/10;
+  }
+
+  .date-urgent {
+    @apply text-orange-500 bg-orange-500/10;
+  }
+
+  .date-ok {
+    @apply text-text2;
+  }
+
+  .date-none {
+    @apply text-text3 italic;
+  }
+}
