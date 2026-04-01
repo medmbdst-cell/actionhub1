@@ -4,11 +4,13 @@
 /**
  * Server actions pour l'import d'actions depuis Excel
  * Inclut le matching automatique des responsables
+ *
+ * OPTIMISATION: Le matching est fait en mémoire après un seul fetch
+ * des profils du tenant, pour éviter le timeout sur Vercel Hobby (10s).
  */
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { matchResponsable } from '@/lib/matching/nameMatching';
 
 type ActionStatut = 'todo' | 'wip' | 'blocked' | 'done';
 type ActionPriorite = 'haute' | 'moyen' | 'faible';
@@ -33,6 +35,106 @@ interface ImportActionsParams {
     drive_row_id: string;
     drive_content_hash: string;
   }>;
+}
+
+interface ProfileCandidate {
+  id: string;
+  nom: string;
+  prenom: string;
+  email: string;
+}
+
+/**
+ * Normalise une chaîne pour la comparaison (lowercase, sans accents, trim)
+ */
+function normalize(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+/**
+ * Parse le texte du responsable pour extraire initiale(s) et nom
+ */
+function parseResponsableTxt(responsableTxt: string): {
+  initiale: string | null;
+  nom: string;
+} {
+  const cleaned = responsableTxt
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\./g, '');
+
+  if (!cleaned.includes(' ')) {
+    return { initiale: null, nom: cleaned };
+  }
+
+  const parts = cleaned.split(' ');
+  const firstPart = parts[0];
+  const restParts = parts.slice(1).join(' ');
+
+  if (firstPart.length <= 3) {
+    return { initiale: firstPart, nom: restParts };
+  }
+
+  return { initiale: firstPart[0], nom: restParts };
+}
+
+/**
+ * Matching en mémoire : compare un responsable_txt contre la liste de profils pré-chargés
+ */
+function matchInMemory(
+  responsableTxt: string,
+  allProfiles: ProfileCandidate[]
+): {
+  responsableId: string | null;
+  issue: { raison: string; candidats?: ProfileCandidate[]; message: string } | null;
+} {
+  if (!responsableTxt || responsableTxt.trim() === '') {
+    return { responsableId: null, issue: null };
+  }
+
+  const { initiale, nom } = parseResponsableTxt(responsableTxt);
+  const nomNormalized = normalize(nom);
+
+  // Filtrer par nom
+  let candidats = allProfiles.filter(p => normalize(p.nom) === nomNormalized);
+
+  // Filtrer par initiale si présente
+  if (initiale && candidats.length > 1) {
+    const initialeNormalized = normalize(initiale);
+    candidats = candidats.filter(p =>
+      normalize(p.prenom).startsWith(initialeNormalized)
+    );
+  }
+
+  if (candidats.length === 0) {
+    return {
+      responsableId: null,
+      issue: {
+        raison: 'inexistant',
+        candidats: [],
+        message: initiale
+          ? `Aucun utilisateur trouvé avec le nom "${nom}" et le prénom commençant par "${initiale}"`
+          : `Aucun utilisateur trouvé avec le nom "${nom}"`,
+      },
+    };
+  }
+
+  if (candidats.length === 1) {
+    return { responsableId: candidats[0].id, issue: null };
+  }
+
+  return {
+    responsableId: null,
+    issue: {
+      raison: 'ambiguite',
+      candidats,
+      message: `${candidats.length} utilisateurs trouvés avec le nom "${nom}". Veuillez ajouter l'initiale du prénom.`,
+    },
+  };
 }
 
 export async function importActions(params: ImportActionsParams) {
@@ -83,8 +185,22 @@ export async function importActions(params: ImportActionsParams) {
     const importBatchId = crypto.randomUUID();
     const importDate = new Date().toISOString();
 
-    // 6. Faire le matching automatique des responsables
-    console.log(`🔍 Matching automatique de ${params.actions.length} actions...`);
+    // 6. PRÉ-CHARGER tous les profils du tenant en UNE SEULE requête
+    //    (évite N requêtes DB = timeout sur Vercel Hobby 10s)
+    const { data: allProfiles } = await supabase
+      .from('profiles')
+      .select('id, nom, prenom, email')
+      .eq('tenant_id', profile.tenant_id!)
+      .eq('actif', true);
+
+    const profilesList: ProfileCandidate[] = (allProfiles || []).map(p => ({
+      id: p.id,
+      nom: p.nom || '',
+      prenom: p.prenom || '',
+      email: p.email || '',
+    }));
+
+    console.log(`🔍 Matching de ${params.actions.length} actions contre ${profilesList.length} profils...`);
 
     const matchingStats = {
       total: params.actions.length,
@@ -93,7 +209,7 @@ export async function importActions(params: ImportActionsParams) {
       inexistants: 0,
     };
 
-    // Préparer les actions avec matching
+    // 7. Préparer les actions avec matching EN MÉMOIRE (0 requête DB supplémentaire)
     const actionsToInsert = [];
     const matchingIssuesToCreate = [];
 
@@ -112,14 +228,13 @@ export async function importActions(params: ImportActionsParams) {
         description: action.description,
         event_description: action.event_description || null,
         responsable_txt: action.responsable_txt || null,
-        responsable_id: null, // Sera rempli par le matching
+        responsable_id: null,
         echeance: cleanEcheance,
         statut: action.statut || 'todo',
         priorite: action.priorite || null,
         commentaire: action.commentaire || null,
         created_by: user.id,
         updated_by: user.id,
-        // ✨ Colonnes de traçabilité
         source_file: params.sourceFile,
         source_sheet: params.sourceSheet,
         plan_action_nom: params.planName,
@@ -127,27 +242,21 @@ export async function importActions(params: ImportActionsParams) {
         import_batch_id: importBatchId,
       };
 
-      // ✨ Phase 3: Ajouter drive_row_id et drive_content_hash si fournis (import depuis Drive)
+      // Phase 3: Ajouter drive_row_id et drive_content_hash si fournis
       if (params.driveRowIds && params.driveRowIds[i]) {
         actionData.drive_row_id = params.driveRowIds[i].drive_row_id;
         actionData.drive_content_hash = params.driveRowIds[i].drive_content_hash;
         actionData.last_synced_at = importDate;
       }
 
-      // Faire le matching si on a un responsable_txt
+      // Matching en mémoire (instantané, pas de requête DB)
       if (action.responsable_txt && action.responsable_txt.trim() !== '') {
-        const matchResult = await matchResponsable(
-          supabase,
-          profile.tenant_id!,
-          action.responsable_txt
-        );
+        const matchResult = matchInMemory(action.responsable_txt, profilesList);
 
-        if (matchResult.success && matchResult.responsableId) {
-          // Match trouvé ✅
+        if (matchResult.responsableId) {
           actionData.responsable_id = matchResult.responsableId;
           matchingStats.matched++;
         } else if (matchResult.issue) {
-          // Problème de matching → on créera une issue après insertion
           matchingIssuesToCreate.push({
             actionData,
             issue: matchResult.issue,
@@ -166,7 +275,7 @@ export async function importActions(params: ImportActionsParams) {
 
     console.log(`✅ Matching terminé: ${matchingStats.matched} matchés, ${matchingStats.ambigus} ambigus, ${matchingStats.inexistants} inexistants`);
 
-    // 7. Insérer les actions en batch
+    // 8. Insérer les actions en batch
     const { data: insertedActions, error: actionsError } = await supabase
       .from('actions')
       .insert(actionsToInsert as any)
@@ -179,16 +288,16 @@ export async function importActions(params: ImportActionsParams) {
       return { success: false, error: `Erreur insertion actions: ${actionsError.message || actionsError.code || JSON.stringify(actionsError)}` };
     }
 
-    // 8. Créer les issues de matching pour les cas non résolus
+    // 9. Créer les issues de matching pour les cas non résolus
     if (matchingIssuesToCreate.length > 0 && insertedActions) {
       console.log(`📝 Création de ${matchingIssuesToCreate.length} issues de matching...`);
 
-      const issuesToInsert = matchingIssuesToCreate.map((item, index) => {
+      const issuesToInsert = matchingIssuesToCreate.map((item) => {
         const insertedAction = insertedActions[actionsToInsert.findIndex(a => a === item.actionData)];
 
         return {
           tenant_id: profile.tenant_id,
-          action_id: insertedAction.id,
+          action_id: insertedAction?.id,
           responsable_txt: item.actionData.responsable_txt,
           raison: item.issue.raison,
           candidats: item.issue.candidats ? JSON.stringify(item.issue.candidats) : null,
@@ -202,11 +311,10 @@ export async function importActions(params: ImportActionsParams) {
 
       if (issuesError) {
         console.error('Erreur création issues de matching:', issuesError);
-        // On continue quand même, ce n'est pas bloquant
       }
     }
 
-    // 9. Revalider les pages concernées
+    // 10. Revalider les pages concernées
     revalidatePath('/admin/actions');
     revalidatePath('/admin/import');
     revalidatePath('/admin/matching');
@@ -231,7 +339,5 @@ export async function importActions(params: ImportActionsParams) {
  * Télécharger le template Excel
  */
 export async function downloadTemplate() {
-  // Cette fonction sera appelée côté client
-  // Le fichier est déjà disponible dans /public
   return { success: true, url: '/template-import-actions.xlsx' };
 }
