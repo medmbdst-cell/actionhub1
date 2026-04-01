@@ -11,7 +11,6 @@ import * as XLSX from 'xlsx';
 import { importActions } from '@/app/actions/import';
 
 type ImportStep = 'upload' | 'sheet-select' | 'preview' | 'mapping' | 'importing' | 'complete';
-type ActionStatut = 'todo' | 'wip' | 'blocked' | 'done';
 type ActionPriorite = 'haute' | 'moyen' | 'faible';
 
 interface ExcelRow {
@@ -181,19 +180,36 @@ export default function ImportPage() {
     return undefined;
   };
 
-  const normalizeStatut = (value: any): ActionStatut => {
+  const normalizeStatut = (value: any): string => {
     if (!value) return 'todo';
 
-    const str = String(value).toLowerCase().trim();
+    const str = String(value).trim();
+    const strLower = str.toLowerCase();
 
-    // Mapping des valeurs possibles
-    const statusMap: Record<string, ActionStatut> = {
+    // Support pourcentages (0%, 10%, ..., 100%)
+    // Valeur décimale Excel (0.5 = 50%)
+    if (typeof value === 'number' && value >= 0 && value <= 1) {
+      return `${Math.round(value * 100)}%`;
+    }
+
+    // Valeur "50%" ou "50 %"
+    const percentMatch = str.match(/^(\d+)\s*%$/);
+    if (percentMatch) {
+      const pct = parseInt(percentMatch[1]);
+      if (pct >= 0 && pct <= 100) {
+        return `${pct}%`;
+      }
+    }
+
+    // Mapping des valeurs textuelles
+    const statusMap: Record<string, string> = {
       '1': 'todo',
       '2': 'wip',
       '3': 'blocked',
       '4': 'done',
       'todo': 'todo',
       'à faire': 'todo',
+      'a faire': 'todo',
       'wip': 'wip',
       'en cours': 'wip',
       'encours': 'wip',
@@ -205,9 +221,13 @@ export default function ImportPage() {
       'terminé': 'done',
       'termine': 'done',
       'fait': 'done',
+      'réalisé': 'done',
+      'realise': 'done',
+      'clôturé': 'done',
+      'cloture': 'done',
     };
 
-    return statusMap[str] || 'todo';
+    return statusMap[strLower] || 'todo';
   };
 
   const normalizePriorite = (value: any): ActionPriorite | undefined => {
@@ -276,9 +296,9 @@ export default function ImportPage() {
         setError(result.error || 'Erreur lors de l\'import');
         setStep('mapping');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erreur import:', err);
-      setError('Erreur lors de l\'import');
+      setError(err?.message || 'Erreur lors de l\'import (erreur réseau ou timeout)');
       setStep('mapping');
     } finally {
       setIsImporting(false);

@@ -176,7 +176,7 @@ export async function importActions(params: ImportActionsParams) {
       console.error('Erreur insertion actions:', actionsError);
       // Supprimer le plan si l'insertion des actions échoue
       await supabase.from('plans_action').delete().eq('id', (plan as any).id);
-      return { success: false, error: 'Erreur lors de l\'import des actions' };
+      return { success: false, error: `Erreur insertion actions: ${actionsError.message || actionsError.code || JSON.stringify(actionsError)}` };
     }
 
     // 8. Créer les issues de matching pour les cas non résolus
@@ -220,9 +220,10 @@ export async function importActions(params: ImportActionsParams) {
         matching: matchingStats,
       }
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur import:', error);
-    return { success: false, error: 'Erreur lors de l\'import' };
+    const message = error?.message || 'Erreur inconnue';
+    return { success: false, error: `Erreur lors de l'import: ${message}` };
   }
 }
 
