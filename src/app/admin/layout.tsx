@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import GlobalSearch from '@/components/common/GlobalSearch';
 import ThemeToggle from '@/components/common/ThemeToggle';
-import { LayoutDashboard, Users, ListChecks, Upload, Cloud, RefreshCw, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, ListChecks, Upload, Cloud, RefreshCw, LogOut, Layers } from 'lucide-react';
 
 export default async function AdminLayout({
   children,
@@ -111,6 +111,13 @@ export default async function AdminLayout({
                     <span>Google Drive</span>
                   </Link>
                   <div className="h-px bg-border my-1" />
+                  <Link
+                    href="/admin/plans"
+                    className="flex items-center space-x-3 px-4 py-2.5 text-sm text-text2 hover:text-text hover:bg-bg3 transition-colors"
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span>Gestion des Plans</span>
+                  </Link>
                   <Link
                     href="/admin/sync-status"
                     className="flex items-center space-x-3 px-4 py-2.5 text-sm text-text2 hover:text-text hover:bg-bg3 last:rounded-b-lg transition-colors"
