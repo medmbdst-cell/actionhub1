@@ -39,8 +39,9 @@ export async function getActiveDriveConnection(tenantId: string, supabaseClient?
 /**
  * Crée un client OAuth2 configuré avec les tokens d'une connexion
  * Gère automatiquement le refresh si le token est expiré
+ * @param supabaseClient - Client Supabase optionnel (pour contexte cron sans cookies)
  */
-export async function createDriveClient(connection: DriveConnection) {
+export async function createDriveClient(connection: DriveConnection, supabaseClient?: any) {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
@@ -58,23 +59,28 @@ export async function createDriveClient(connection: DriveConnection) {
   oauth2Client.on('tokens', async (tokens) => {
     console.log('🔄 Tokens refreshed, saving to database...');
 
-    const supabase = await createClient();
+    try {
+      // Utiliser le client fourni (cron) ou créer un nouveau (contexte utilisateur)
+      const supabase = supabaseClient || await createClient();
 
-    const expiresAt = tokens.expiry_date
-      ? new Date(tokens.expiry_date)
-      : new Date(Date.now() + 3600 * 1000); // 1h par défaut
+      const expiresAt = tokens.expiry_date
+        ? new Date(tokens.expiry_date)
+        : new Date(Date.now() + 3600 * 1000); // 1h par défaut
 
-    await supabase
-      .from('google_drive_connections')
-      .update({
-        access_token: tokens.access_token!,
-        refresh_token: tokens.refresh_token || connection.refresh_token,
-        token_expires_at: expiresAt.toISOString(),
-        last_error: null, // Clear errors on successful refresh
-      })
-      .eq('id', connection.id);
+      await supabase
+        .from('google_drive_connections')
+        .update({
+          access_token: tokens.access_token!,
+          refresh_token: tokens.refresh_token || connection.refresh_token,
+          token_expires_at: expiresAt.toISOString(),
+          last_error: null, // Clear errors on successful refresh
+        })
+        .eq('id', connection.id);
 
-    console.log('✅ New tokens saved to database');
+      console.log('✅ New tokens saved to database');
+    } catch (error) {
+      console.error('❌ Failed to save refreshed tokens:', error);
+    }
   });
 
   return google.drive({ version: 'v3', auth: oauth2Client });
@@ -86,8 +92,8 @@ export async function createDriveClient(connection: DriveConnection) {
 export async function markConnectionInactive(connectionId: string, errorMessage: string) {
   const supabase = await createClient();
 
-  await supabase
-    .from('google_drive_connections')
+  await (supabase
+    .from('google_drive_connections') as any)
     .update({
       actif: false,
       last_error: errorMessage,
@@ -117,7 +123,7 @@ export async function getDriveClientForTenant(tenantId: string, supabaseClient?:
   }
 
   try {
-    const drive = await createDriveClient(connection);
+    const drive = await createDriveClient(connection, supabaseClient);
     return { drive, connection };
   } catch (error) {
     console.error('Erreur création Drive client:', error);
